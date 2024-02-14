@@ -1,6 +1,6 @@
 ﻿namespace SoftUniBazar.Models
 {
-    public class CreateAdVM
+    public class AdFormVM
     {
         public string Name { get; set; }
 

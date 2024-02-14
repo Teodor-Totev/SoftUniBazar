@@ -46,7 +46,7 @@ namespace SoftUniBazar.Controllers
 				})
 				.ToArrayAsync();
 
-			CreateAdVM model = new()
+			AdFormVM model = new()
 			{
 				Categories = categories
 			};
@@ -55,7 +55,7 @@ namespace SoftUniBazar.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Add(CreateAdVM a)
+        public async Task<IActionResult> Add(AdFormVM a)
         {
 
 
@@ -72,7 +72,63 @@ namespace SoftUniBazar.Controllers
 			await context.Ads.AddAsync(ad);
 			await context.SaveChangesAsync();
 
-            return RedirectToAction("All");
+            return RedirectToAction(nameof(All));
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Edit(int id)
+        {
+            var ad = await context.Ads
+				.Where(a => a.Id == id)
+				.FirstOrDefaultAsync();
+
+			if (ad == null)
+			{
+				return BadRequest();
+			}
+
+            IEnumerable<CategoryViewModel> categories = await context.Categories
+                .Select(c => new CategoryViewModel()
+                {
+                    Id = c.Id,
+                    Name = c.Name,
+                })
+                .ToArrayAsync();
+
+            AdFormVM model = new AdFormVM()
+			{
+				Name = ad.Name,
+				Description = ad.Description,
+				ImageUrl = ad.ImageUrl,
+				Price = ad.Price,
+				CategoryId= ad.CategoryId,
+				Categories = categories
+			};
+
+            return View(model);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Edit(int id, AdFormVM model)
+        {
+            var ad = await context.Ads
+                .Where(a => a.Id == id)
+                .FirstOrDefaultAsync();
+
+            if (ad == null)
+            {
+                return BadRequest();
+            }
+
+			ad.Name = model.Name;
+			ad.Description = model.Description;
+			ad.ImageUrl = model.ImageUrl;
+			ad.Price = model.Price;
+			ad.CategoryId = model.CategoryId;
+
+			await context.SaveChangesAsync();
+
+            return RedirectToAction(nameof(All));
         }
 
         private string GetUserId()

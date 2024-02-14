@@ -7,7 +7,12 @@ namespace SoftUniBazar.Data.Models
 {
 	public class Ad
 	{
-		[Key]
+        public Ad()
+        {
+            CreatedOn = DateTime.UtcNow;
+        }
+
+        [Key]
 		public int Id { get; set; }
 
 		[Required]
