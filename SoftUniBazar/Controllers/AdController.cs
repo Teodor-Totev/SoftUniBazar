@@ -4,52 +4,47 @@ using SoftUniBazar.Data;
 using SoftUniBazar.Data.Models;
 using SoftUniBazar.Models;
 using System.Security.Claims;
+using System.Xml.Linq;
 
 namespace SoftUniBazar.Controllers
 {
-	public class AdController : Controller
-	{
-		private readonly BazarDbContext context;
+    public class AdController : Controller
+    {
+        private readonly BazarDbContext context;
 
         public AdController(BazarDbContext context)
         {
-			this.context = context;
+            this.context = context;
         }
 
         public async Task<IActionResult> All()
-		{
-			IEnumerable<AdViewModel> ads = await context.Ads
-				.Select(a => new AdViewModel()
-				{
-					Id = a.Id,
-					Name = a.Name,
-					Owner = a.Owner.UserName,
-					CreatedOn = a.CreatedOn.ToString("dd-MM-yyyy HH:mm"),
-					Category = a.Category.Name,
-					Description = a.Description,
-					ImageUrl = a.ImageUrl,
-					Price = a.Price,
-				})
-				.ToArrayAsync();
+        {
+            IEnumerable<AdViewModel> ads = await context.Ads
+                .Select(a => new AdViewModel()
+                {
+                    Id = a.Id,
+                    Name = a.Name,
+                    Owner = a.Owner.UserName,
+                    CreatedOn = a.CreatedOn.ToString("dd-MM-yyyy HH:mm"),
+                    Category = a.Category.Name,
+                    Description = a.Description,
+                    ImageUrl = a.ImageUrl,
+                    Price = a.Price,
+                })
+                .ToArrayAsync();
 
-			return View(ads);
-		}
+            return View(ads);
+        }
 
-		[HttpGet]
+        [HttpGet]
         public async Task<IActionResult> Add()
         {
-			IEnumerable<CategoryViewModel> categories = await context.Categories
-				.Select(c => new CategoryViewModel()
-				{
-					Id = c.Id,
-					Name = c.Name,
-				})
-				.ToArrayAsync();
+            IEnumerable<CategoryViewModel> categories = await GetCategories();
 
-			AdFormVM model = new()
-			{
-				Categories = categories
-			};
+            AdFormVM model = new()
+            {
+                Categories = categories
+            };
 
             return View(model);
         }
@@ -57,20 +52,18 @@ namespace SoftUniBazar.Controllers
         [HttpPost]
         public async Task<IActionResult> Add(AdFormVM a)
         {
-
-
-			Ad ad = new()
-			{
-				Name = a.Name,
-				Description = a.Description,
-				ImageUrl = a.ImageUrl,
-				Price = a.Price,
-				CategoryId = a.CategoryId,
-				OwnerId = GetUserId()
+            Ad ad = new()
+            {
+                Name = a.Name,
+                Description = a.Description,
+                ImageUrl = a.ImageUrl,
+                Price = a.Price,
+                CategoryId = a.CategoryId,
+                OwnerId = GetUserId()
             };
 
-			await context.Ads.AddAsync(ad);
-			await context.SaveChangesAsync();
+            await context.Ads.AddAsync(ad);
+            await context.SaveChangesAsync();
 
             return RedirectToAction(nameof(All));
         }
@@ -79,31 +72,25 @@ namespace SoftUniBazar.Controllers
         public async Task<IActionResult> Edit(int id)
         {
             var ad = await context.Ads
-				.Where(a => a.Id == id)
-				.FirstOrDefaultAsync();
+                .Where(a => a.Id == id)
+                .FirstOrDefaultAsync();
 
-			if (ad == null)
-			{
-				return BadRequest();
-			}
+            if (ad == null)
+            {
+                return BadRequest();
+            }
 
-            IEnumerable<CategoryViewModel> categories = await context.Categories
-                .Select(c => new CategoryViewModel()
-                {
-                    Id = c.Id,
-                    Name = c.Name,
-                })
-                .ToArrayAsync();
+            IEnumerable<CategoryViewModel> categories = await GetCategories();
 
             AdFormVM model = new AdFormVM()
-			{
-				Name = ad.Name,
-				Description = ad.Description,
-				ImageUrl = ad.ImageUrl,
-				Price = ad.Price,
-				CategoryId= ad.CategoryId,
-				Categories = categories
-			};
+            {
+                Name = ad.Name,
+                Description = ad.Description,
+                ImageUrl = ad.ImageUrl,
+                Price = ad.Price,
+                CategoryId = ad.CategoryId,
+                Categories = categories
+            };
 
             return View(model);
         }
@@ -120,20 +107,81 @@ namespace SoftUniBazar.Controllers
                 return BadRequest();
             }
 
-			ad.Name = model.Name;
-			ad.Description = model.Description;
-			ad.ImageUrl = model.ImageUrl;
-			ad.Price = model.Price;
-			ad.CategoryId = model.CategoryId;
+            ad.Name = model.Name;
+            ad.Description = model.Description;
+            ad.ImageUrl = model.ImageUrl;
+            ad.Price = model.Price;
+            ad.CategoryId = model.CategoryId;
 
-			await context.SaveChangesAsync();
+            await context.SaveChangesAsync();
 
             return RedirectToAction(nameof(All));
         }
 
+        public async Task<IActionResult> AddToCart(int id)
+        {
+            var ad = await context.Ads
+                .Where(a => a.Id == id)
+                .FirstOrDefaultAsync();
+
+            var currentUser = await context.Users
+                .Where(u => u.Id == GetUserId())
+                .FirstOrDefaultAsync();
+
+            if (ad == null || currentUser == null)
+            {
+                return BadRequest();
+            }
+
+            if (context.AdsBuyers.Any(ab => ab.BuyerId == currentUser.Id))
+            {
+                return RedirectToAction("All");
+            }
+
+            await context.AdsBuyers.AddAsync(new AdBuyer()
+            {
+                AdId = ad.Id,
+                BuyerId = currentUser.Id,
+            });
+
+            await context.SaveChangesAsync();
+
+            return RedirectToAction("Cart");
+        }
+
+        public async Task<IActionResult> Cart()
+        {
+            IEnumerable<AdViewModel> model = await context.AdsBuyers
+                .Where(ab => ab.BuyerId == GetUserId())
+                .Select(a => new AdViewModel()
+                {
+                    Name = a.Ad.Name,
+                    ImageUrl = a.Ad.ImageUrl,
+                    CreatedOn = a.Ad.CreatedOn.ToString("dd-MM-yyyy HH:mm"),
+                    Category = a.Ad.Category.Name,
+                    Description = a.Ad.Description
+                })
+                .ToArrayAsync();
+
+            return View(model);
+        }
+
         private string GetUserId()
-		{
-			return User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-		}
-	}
+        {
+            return User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        }
+
+        private async Task<IEnumerable<CategoryViewModel>> GetCategories()
+        {
+            IEnumerable<CategoryViewModel> categories = await context.Categories
+                .Select(c => new CategoryViewModel()
+                {
+                    Id = c.Id,
+                    Name = c.Name,
+                })
+                .ToArrayAsync();
+
+            return categories;
+        }
+    }
 }
