@@ -143,7 +143,7 @@ namespace SoftUniBazar.Controllers
                 return BadRequest();
             }
 
-            if (context.AdsBuyers.Any(ab => ab.BuyerId == currentUser.Id))
+            if (context.AdsBuyers.Any(ab => ab.AdId == ad.Id))
             {
                 return RedirectToAction("All");
             }
