@@ -50,15 +50,20 @@ namespace SoftUniBazar.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Add(AdFormVM a)
+        public async Task<IActionResult> Add(AdFormVM model)
         {
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
+
             Ad ad = new()
             {
-                Name = a.Name,
-                Description = a.Description,
-                ImageUrl = a.ImageUrl,
-                Price = a.Price,
-                CategoryId = a.CategoryId,
+                Name = model.Name,
+                Description = model.Description,
+                ImageUrl = model.ImageUrl,
+                Price = model.Price,
+                CategoryId = model.CategoryId,
                 OwnerId = GetUserId()
             };
 
@@ -98,6 +103,11 @@ namespace SoftUniBazar.Controllers
         [HttpPost]
         public async Task<IActionResult> Edit(int id, AdFormVM model)
         {
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
+
             var ad = await context.Ads
                 .Where(a => a.Id == id)
                 .FirstOrDefaultAsync();
@@ -149,17 +159,39 @@ namespace SoftUniBazar.Controllers
             return RedirectToAction("Cart");
         }
 
+        public async Task<IActionResult> RemoveFromCart(int id)
+        {
+            string userId = GetUserId();
+            AdBuyer adBuyer = await context.AdsBuyers
+                .Where(ab => ab.BuyerId == userId && ab.AdId == id)
+                .FirstOrDefaultAsync();
+
+            if (adBuyer == null)
+            {
+                return BadRequest();
+            }
+
+            context.AdsBuyers.Remove(adBuyer);
+            await context.SaveChangesAsync();
+
+            return RedirectToAction("All");
+        }
+
+
         public async Task<IActionResult> Cart()
         {
             IEnumerable<AdViewModel> model = await context.AdsBuyers
                 .Where(ab => ab.BuyerId == GetUserId())
                 .Select(a => new AdViewModel()
                 {
+                    Id = a.Ad.Id,
                     Name = a.Ad.Name,
                     ImageUrl = a.Ad.ImageUrl,
                     CreatedOn = a.Ad.CreatedOn.ToString("dd-MM-yyyy HH:mm"),
                     Category = a.Ad.Category.Name,
-                    Description = a.Ad.Description
+                    Description = a.Ad.Description,
+                    Price = a.Ad.Price,
+                    Owner = a.Ad.Owner.UserName
                 })
                 .ToArrayAsync();
 
