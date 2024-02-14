@@ -10,7 +10,5 @@
 		public string Description { get; set; }
 		public decimal Price { get; set; }
 		public string Owner { get; set; }
-		public bool IsOwner { get; set; }
-
 	}
 }
